@@ -1,56 +1,59 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 import pandas as pd
-
-# Set the parameters
-num_genes = 1000  # Number of variables (genes)
-num_samples = 50  # Number of samples
-mean_range = (-0.5, 0.5)
-
-# Define the standard deviation vector
-std_dev = np.ones(num_genes)
-
-k = 0.6
-r = 0.65
-
-# Generate means from a uniform distribution
-means = np.random.uniform(
-    low=mean_range[0], high=mean_range[1], size=num_genes
-)
-
-# Initialize the correlation matrix
-corr_matrix = np.zeros((num_genes, num_genes))  # with zeros
-
-# Define the significant genes
-l = np.random.choice(
-    range(num_genes), size=int(0.2 * num_genes), replace=False
-)
-
-# Generate the modified means and correlations for significant genes
-for i in l:
-    means[i] += k
-
-    for j in range(num_genes):
-        if j in l:
-            corr_matrix[i, j] += r
-
-# For the non-significant genes, fill the diagonal with variances
-
-# cov matrix is corr matrix_ih * std_i * std_h
-cov_matrix = corr_matrix * np.outer(std_dev, std_dev)
+import os
 
 
-# Generate the simulated expression data
-simulated_data = multivariate_normal.rvs(
-    mean=means, cov=cov_matrix, size=num_samples
-)
+def generate_data(
+    k, r, save_name, num_genes=1000, num_samples=50, data_range=(-0.5, 0.5)
+):
+    # Generate means from a uniform distribution
+    means = np.random.uniform(
+        low=data_range[0], high=data_range[1], size=num_genes
+    )
+    # Generate the standard deviation matrix
+    std_dev = np.zeros((num_genes, num_genes))
+    np.fill_diagonal(
+        std_dev,
+        np.random.uniform(low=0.01, high=data_range[1], size=num_genes),
+    )
 
-# Convert the numpy array to a pandas DataFrame
-df = pd.DataFrame(simulated_data)
+    # Initialize the correlation matrix
+    corr_matrix = np.eye(num_genes)  # with zeros
 
-# Save the DataFrame to a CSV file
-df.to_csv("simulated_data_test.csv", index=False)
+    # Define the significant genes
+    l = np.random.choice(
+        range(num_genes), size=int(0.2 * num_genes), replace=False
+    )
 
-print("Data saved to simulated_data.csv")
+    # Generate the modified means and correlations for significant genes
+    for i in l:
+        means[i] += k
+        for j in l:
+            if i != j:
+                corr_matrix[i, j] += r
 
-print(simulated_data.shape)
+    cov_matrix = std_dev.dot(corr_matrix).dot(std_dev)
+    # Generate the simulated expression data
+    simulated_data = multivariate_normal.rvs(
+        mean=means, cov=cov_matrix, size=num_samples
+    )
+    clipped_data = np.clip(simulated_data, data_range[0], data_range[1])
+
+    # Save as csv
+    df = pd.DataFrame(clipped_data)
+    os.makedirs("simulated_data", exist_ok=True)
+    df.to_csv(f"simulated_data/simulated_data_{save_name}.csv", index=False)
+    print(f"Data saved to simulated_data/simulated_data_{save_name}.csv")
+
+
+if __name__ == "__main__":
+    case_parameters = {
+        "case1": (0.6, 0.65),
+        "case2": (0.3, 0.65),
+        "case3": (0.6, 0.35),
+        "case4": (0.3, 0.35),
+    }
+
+    for case, (k, r) in case_parameters.items():
+        generate_data(k, r, case)
