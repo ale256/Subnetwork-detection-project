@@ -5,8 +5,16 @@ import os
 
 
 def generate_data(
-    k, r, save_name, num_genes=1000, num_samples=50, data_range=(-0.5, 0.5)
+    k,
+    r,
+    significant_genes,
+    save_name,
+    num_genes=1000,
+    num_samples=50,
+    data_range=(-0.5, 0.5),
+    seed=0,
 ):
+    np.random.seed(seed)
     # Generate means from a uniform distribution
     means = np.random.uniform(
         low=data_range[0], high=data_range[1], size=num_genes
@@ -22,9 +30,7 @@ def generate_data(
     corr_matrix = np.eye(num_genes)  # with zeros
 
     # Define the significant genes
-    l = np.random.choice(
-        range(num_genes), size=int(0.2 * num_genes), replace=False
-    )
+    l = significant_genes
 
     # Generate the modified means and correlations for significant genes
     for i in l:
@@ -49,11 +55,20 @@ def generate_data(
 
 if __name__ == "__main__":
     case_parameters = {
+        "case0": (0, 0),  # (k, r)
         "case1": (0.6, 0.65),
         "case2": (0.3, 0.65),
         "case3": (0.6, 0.35),
         "case4": (0.3, 0.35),
     }
+    seed = 0
+    num_genes = 1000
+    np.random.seed(seed)
+    significant_genes = np.random.choice(
+        range(num_genes), size=int(0.2 * num_genes), replace=False
+    )
 
     for case, (k, r) in case_parameters.items():
-        generate_data(k, r, case)
+        generate_data(
+            k, r, significant_genes, case, num_genes=num_genes, seed=seed
+        )
