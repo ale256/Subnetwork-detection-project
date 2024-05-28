@@ -1,5 +1,6 @@
 import pandas as pd
 from hyperparameters import *
+import numpy as np
 
 
 def get_stats(base_case, comparing_case):
@@ -33,6 +34,15 @@ def get_stats(base_case, comparing_case):
     # calculate sample correlations
     rho_N = base_data.corr().to_numpy()
     rho_C = comparing_data.corr().to_numpy()
+    # Replace NaNs with 0
+    rho_N = np.nan_to_num(rho_N)
+    rho_C = np.nan_to_num(rho_C)
+    assert (
+        np.isnan(rho_N).sum() == 0
+    ), "There are NaNs in the correlation matrix"
+    assert (
+        np.isnan(rho_C).sum() == 0
+    ), "There are NaNs in the correlation matrix"
 
     p_N = n / (n + m)
     p_C = m / (n + m)

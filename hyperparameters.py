@@ -1,3 +1,3 @@
 SIGMA_V = 0.084
-LAMBDA = 0.2715
+
 NUM_GENES = int(1000)

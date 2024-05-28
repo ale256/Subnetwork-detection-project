@@ -12,7 +12,7 @@ def Ti(mu_Y_N, mu_Y_C, sigma_Y_N, sigma_Y_C, n, m, sigma_v):
         np.sqrt((sigma_Y_N**2 + sigma_Y_C**2) * (1 / n + 1 / m) / (n + m - 2))
         + sigma_v
     )
-    return numerator / denominator
+    return abs(numerator / denominator)
 
 
 def T_Y_given_Z(
@@ -42,6 +42,29 @@ def T_Y_given_Z(
     ) * (1 / n + 1 / m)
     denominator = np.sqrt(denominator_inner / (n + m - 2)) + sigma_v
 
+    result = numerator / denominator
+    if not np.isfinite(result):
+        print(
+            result,
+            numerator,
+            denominator,
+            term1,
+            term2,
+            z,
+            mu_Z_N,
+            mu_Z_C,
+            mu_Y_C,
+            mu_Y_N,
+            sigma_Y_N,
+            sigma_Y_C,
+            rho_N,
+            rho_C,
+            n,
+            m,
+            sigma_v,
+        )
+        raise ValueError("T_Y_given_Z is not finite")
+
     return numerator / denominator
 
 
@@ -70,22 +93,27 @@ def Mij(
     # Generate a range of z values
     z_values = np.linspace(Z_limits[0], Z_limits[1], 1000)
 
-    # Calculate the function values
-    y_values = [integrand(z) for z in z_values]
+    # check if integral_result is a number
+    if np.isnan(integral_result):
 
-    # Plot the function
-    # plt.figure(figsize=(10, 6))
-    # plt.plot(z_values, y_values)
-    # plt.xlabel("z")
-    # plt.ylabel("integrand(z)")
-    # plt.title("PDF of z")
-    # plt.grid(True)
-    # plt.show()
+        # Calculate the function values
+        y_values = [integrand(z) for z in z_values]
 
-    return integral_result
+        # Plot the function
+        plt.figure(figsize=(10, 6))
+        plt.plot(z_values, y_values)
+        plt.xlabel("z")
+        plt.ylabel("integrand(z)")
+        plt.title("PDF of z")
+        plt.grid(True)
+        plt.show()
+
+        raise ValueError("Integral result is NaN")
+
+    return abs(integral_result)
 
 
-def get_params(stats, save=True):
+def get_params(stats, save=False):
     num_genes = stats["num_genes"]
     mu_N = stats["mu_N"]
     mu_C = stats["mu_C"]
@@ -104,17 +132,17 @@ def get_params(stats, save=True):
 
     # [ ] may want to optimize these for-loops in the future to speed up code
     for i in range(num_genes):
-        v[i] = Ti(mu_N[i], mu_C[i], sigma_N[i], sigma_C[i], n, m, sigma_v)
+        v[i] = abs(Ti(mu_N[i], mu_C[i], sigma_N[i], sigma_C[i], n, m, sigma_v))
 
     if save:
         os.makedirs("output", exist_ok=True)
-        np.save(f"output/v_{save}.npy", v)
+        np.save(f"output/v_W/v_{save}.npy", v)
 
     for j in range(num_genes):
         if j % 1 == 0:
             print(f"Processing gene {j} of {num_genes}")
             if save:
-                np.save(f"output/W_{save}.npy", W)
+                np.save(f"output/v_W/W_{save}.npy", W)
         for k in range(num_genes):
             T_Y_given_Z_as_z = partial(
                 T_Y_given_Z,
@@ -139,17 +167,25 @@ def get_params(stats, save=True):
             Z_lower = min(mu_N[k] - 3 * sigma_N[k], mu_C[k] - 3 * sigma_C[k])
             Z_limits = (Z_lower, Z_upper)
 
-            W[j, k] = Mij(
-                T_Y_given_Z_as_z, p_N, p_C, f_Z_N_as_z, f_Z_C_as_z, Z_limits
+            W[j, k] = abs(
+                Mij(
+                    T_Y_given_Z_as_z,
+                    p_N,
+                    p_C,
+                    f_Z_N_as_z,
+                    f_Z_C_as_z,
+                    Z_limits,
+                )
             )
 
+    print(f"{save} Done!")
     return v, W
 
 
 if __name__ == "__main__":
 
     base_case = "simulated_data/simulated_data_case0.csv"
-    for i in range(2, 5):
+    for i in range(1, 5):
         comparing_case = f"simulated_data/simulated_data_case{i}.csv"
         stats = get_stats(base_case, comparing_case)
         v, W = get_params(stats, save=f"case{i}")
