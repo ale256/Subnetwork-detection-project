@@ -1,4 +1,5 @@
 import pandas as pd
+from hyperparameters import *
 
 
 def get_stats(base_case, comparing_case):
@@ -10,6 +11,9 @@ def get_stats(base_case, comparing_case):
     assert len(base_data.columns) == len(
         comparing_data.columns
     ), "They don't have the same number of genes!"
+    assert (
+        len(base_data.columns) == NUM_GENES
+    ), "The num_gene data does not match hyperparameter!"
 
     # get the length of the data
     n = len(base_data)
@@ -20,8 +24,8 @@ def get_stats(base_case, comparing_case):
     # Calculate the sample means for each row
     mu_N = base_data.mean(axis=0).to_numpy()
     mu_C = comparing_data.mean(axis=0).to_numpy()
-    assert len(mu_N) == 1000
-    assert len(mu_C) == 1000
+    assert len(mu_N) == NUM_GENES
+    assert len(mu_C) == NUM_GENES
 
     sigma_N = base_data.std(axis=0).to_numpy()
     sigma_C = comparing_data.std(axis=0).to_numpy()
@@ -33,7 +37,7 @@ def get_stats(base_case, comparing_case):
     p_N = n / (n + m)
     p_C = m / (n + m)
 
-    sigma_v = 0.084
+    sigma_v = SIGMA_V
 
     stats = {
         "num_genes": num_genes,

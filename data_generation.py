@@ -67,6 +67,7 @@ if __name__ == "__main__":
     significant_genes = np.random.choice(
         range(num_genes), size=int(0.2 * num_genes), replace=False
     )
+    np.save("simulated_data/significant_genes.npy", significant_genes)
 
     for case, (k, r) in case_parameters.items():
         generate_data(
