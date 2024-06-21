@@ -1,5 +1,5 @@
 import pandas as pd
-from hyperparameters import *
+from config import *
 import numpy as np
 
 
