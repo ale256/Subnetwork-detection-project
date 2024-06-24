@@ -1,15 +1,25 @@
 import numpy as np
-import sys
-
-sys.path.append("src/")
 import pygad
 from calcu_lambda import compute_lambda
 from functools import partial
 from soft_thres import soft_thres_l1, soft_thres_l1_2d
-import sys
+import logging
+import os
+from datetime import datetime
+
+os.makedirs("exp_log", exist_ok=True)
+current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(f"exp_log/genetic_algorithm_{current_time}.log"),
+        logging.StreamHandler(),
+    ],
+)
 
 
-# Define the objective function
 def fit_func(W, v, lambda_, ga_instance, solution, solution_idx):
 
     x = np.array(solution)
@@ -26,9 +36,13 @@ def on_generation(ga_instance):
     # solution = np.minimum(solution, 1)
     # solution = soft_thres_l1(solution)
     # ga_instance.population[sol_idx] = solution
-    print(
+    # print(
+    #     f"Generation {ga_instance.generations_completed}: Best Fitness = {ga_instance.best_solution()[1]}"
+    # )
+    logging.info(
         f"Generation {ga_instance.generations_completed}: Best Fitness = {ga_instance.best_solution()[1]}"
     )
+
     # Print the best solution after each generation
     best_solution, best_solution_fitness, best_solution_idx = (
         ga_instance.best_solution()
@@ -59,9 +73,10 @@ def create_normalized_population(sol_per_pop, num_genes):
     return population
 
 
-def scramble_mutation(offspring, ga_instance):
+def custom_mutation(offspring, ga_instance):
     mutation_rate = ga_instance.mutation_probability  # Get the mutation rate
     for i in range(len(offspring)):
+        # Scramble mutation
         if np.random.rand() < mutation_rate:
             # Select a random subset to scramble
             start, end = sorted(
@@ -71,16 +86,20 @@ def scramble_mutation(offspring, ga_instance):
             )
             if start != end:
                 np.random.shuffle(offspring[i, start : end + 1])
+        # Random mutation
         if np.random.rand() < mutation_rate:
             # gene_idx = np.random.randint(0, ga_instance.num_genes)
 
             indices = np.random.choice(
                 range(ga_instance.num_genes), 20, replace=False
             )
+            upper = offspring[i, :].max()
             offspring[i, indices] = np.random.uniform(
-                0.0, 1.0, size=len(indices)
+                upper / 2, upper * 2, size=len(indices)
             )
+
             offspring[i] = soft_thres_l1(offspring[i])
+
         pass
 
     return offspring
@@ -121,6 +140,8 @@ def arithmetic_crossover(parents, offspring_size, ga_instance):
 
     # Apply soft_thres_l1 row-wise
     offspring = soft_thres_l1_2d(offspring)
+    # for i in range(offspring_size[0]):
+    #     print(offspring[i].sum())
 
     return offspring
 
@@ -143,14 +164,13 @@ def evaluation(solution):
     precision = TP / (TP + FP)
     recall = TP / (TP + FN)
     f1 = 2 * precision * recall / (precision + recall)
-    print(f"Precision: {precision}")
-    print(f"Recall: {recall}")
-    print(f"F1: {f1}")
+    logging.info(f"Precision: {precision}; Recall: {recall}; F1: {f1}")
 
 
 if __name__ == "__main__":
     np.random.seed(42)
-    for idx in range(1, 2):
+    for idx in range(1, 5):
+        logging.info(f"----------Case {idx}----------")
         W = np.load(f"output/sparse_v_W/W_case{idx}.npy")
         v = np.load(f"output/sparse_v_W/v_case{idx}.npy")
         lambda_ = compute_lambda(W, v, num_samples=1000)
@@ -173,9 +193,22 @@ if __name__ == "__main__":
         # mutation_rate = 100 / (num_genes + 1)  # Set mutation rate
         mutation_rate = 0.1
         crossover_rate = 0.8  # Set crossover rate
+        stop_criteria = ["saturate_100"]
         initial_population = create_normalized_population(
             sol_per_pop, num_genes
         )
+
+        logging.info("Hyperparameters:")
+        logging.info(f"Number of Generations: {num_generations}")
+        logging.info(f"Parents Mating Rate: {parents_mating_rate}")
+        logging.info(f"Keep Parents Rate: {keep_parents_rate}")
+        logging.info(f"Solution per Population: {sol_per_pop}")
+        logging.info(f"Number of Parents Mating: {num_parents_mating}")
+        logging.info(f"Number of Genes: {num_genes}")
+        logging.info(f"Mutation Rate: {mutation_rate}")
+        logging.info(f"Crossover Rate: {crossover_rate}")
+        logging.info(f"Stop Criteria: {stop_criteria}")
+        logging.info("--------------------------")
 
         # Creating an instance of the GA
         ga_instance = pygad.GA(
@@ -184,28 +217,33 @@ if __name__ == "__main__":
             fitness_func=fitness_func,
             sol_per_pop=sol_per_pop,
             num_genes=num_genes,
-            mutation_type=scramble_mutation,
+            mutation_type=custom_mutation,
             # mutation_type="random",
             mutation_probability=mutation_rate,  # pygad uses percentage
             crossover_type=arithmetic_crossover,  # Experiment with different crossover methods
             crossover_probability=crossover_rate,  # Set crossover rate
             on_generation=on_generation,
-            stop_criteria=[
-                "saturate_100"
-            ],  # Stop if no improvement for 100 generations
+            stop_criteria=stop_criteria,
             keep_parents=keep_parents,
             initial_population=initial_population,
         )
         # Running the GA
         ga_instance.run()
 
+        logging.info("----------Finish running GA----------")
+
         # Best solution
         solution, solution_fitness, solution_idx = ga_instance.best_solution()
-        print("Best Solution: ", solution)
-        print("Best Solution Fitness: ", solution_fitness)
+        # print("Best Solution: ", solution)
+        # print("Best Solution Fitness: ", solution_fitness)
 
         # Save the best solution
         # np.save(f"output/best_solution_case{idx}.npy", solution)
 
         evaluation(solution)
-        print("Non-zero elements: ", np.nonzero(solution)[0])
+        # print("Non-zero elements: ", np.nonzero(solution)[0])
+
+        logging.info("Best Solution: %s", solution)
+        logging.info("Best Solution Fitness: %s", solution_fitness)
+        evaluation(solution)
+        logging.info("Non-zero elements: %s", np.nonzero(solution)[0])
